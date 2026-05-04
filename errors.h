@@ -1,19 +1,79 @@
 #ifndef _ERRORS_H_
 #define _ERRORS_H_
 
-#define ERR_MSG_ALLOC   "Failed allocating memory: expected size %d.\n"
+#include <stdarg.h>
+#include <stdio.h>
+#include <stdlib.h>
+
+#define ERR_MSG_ALLOC   "Failed allocating memory: expected size %zu.\n"
 #define ERR_MSG_ARGC    "Unrecognized args count: expected 3, found %d.\n"
 #define ERR_MSG_FCLOSE  "Failed closing file: %s.\n"
 #define ERR_MSG_FOPEN   "Failed opening file: %s.\n"
 #define ERR_MSG_FWRITE  "Failed writing file: %s.\n"
 #define ERR_MSG_SYNTAX  "Expected %s, found %s.\n"
 
-#define ERR(format, ...) do \
-{ \
-    while (fprintf(stderr, format __VA_OPT__(,) __VA_ARGS__) == EOF) \
-    { \
-    } \
-} \
-while (0) \
+void err(const char *const format, ...)
+{
+    va_list args;
+    va_start(args, format);
+    while (vfprintf(stderr, format, args) == EOF);
+    va_end(args);
+}
+
+void *alloc(const size_t size)
+{
+    void *p = malloc(size);
+    if (!p)
+    {
+        err(ERR_MSG_ALLOC, size);
+        return nullptr;
+    }
+    return p;
+}
+
+/*
+    Returns true as error occurs or false.
+*/
+bool print(FILE *const file, const char *const format, ...)
+{
+    va_list args;
+    va_start(args, format);
+    bool t = false;
+    while (vfprintf(file, format, args) == EOF)
+    {
+        t = true;
+    }
+    va_end(args);
+    return t;
+}
+
+/*
+    Different method value for different reserve method.
+    method = false  =>  ++cap;
+    method = true   =>  cap <<= 1;
+    Returns true as error occurs or false.
+*/
+bool reserve(void **memory, const size_t size, size_t *const cap, const size_t element, const bool method)
+{
+    if (size != *cap)
+    {
+        return false;
+    }
+    if (method)
+    {
+        *cap <<= 1;
+    }
+    else
+    {
+        ++*cap;
+    }
+    *memory = realloc(*memory, *cap * element);
+    if (!*memory)
+    {
+        err(ERR_MSG_ALLOC, *cap * element);
+        return true;
+    }
+    return false;
+}
 
 #endif

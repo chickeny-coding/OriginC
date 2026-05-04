@@ -1,9 +1,11 @@
+#include <string.h>
 #include "tokenizer.c"
 
 typedef enum _TreeNodeType
 {
     tnBlock,
     tnEOC,
+    tnGlobal,
     tnIdentity,
 } TreeNodeType;
 
@@ -19,11 +21,16 @@ char *treenodetype_to_str(const TreeNodeType tt)
         {
             return "EOC";
         }
+        case tnGlobal:
+        {
+            return "Global";
+        }
         case tnIdentity:
         {
             return "Identity";
         }
     }
+    return nullptr;
 }
 
 /*
@@ -43,41 +50,35 @@ bool print_tree(const TreeNode *const tree, const int depth)
 {
     for (int i = depth; i--;)
     {
-        if (putchar(' ') == EOF)
+        if (print(stdout, " "))
         {
-            ERR(ERR_MSG_FWRITE, "stdout");
             return true;
         }
     }
-    if (printf("%s", treenodetype_to_str(tree->type)) == EOF)
+    if (print(stdout, "%s", treenodetype_to_str(tree->type)))
     {
-        ERR(ERR_MSG_FWRITE, "stdout");
         return true;
     }
     if (tree->value)
     {
-        if (printf("(\"%s\")", tree->value) == EOF)
+        if (print(stdout, "(\"%s\")", tree->value))
         {
-            ERR(ERR_MSG_FWRITE, "stdout");
             return true;
         }
     }
-    if (putchar('\n') == EOF)
+    if (print(stdout, "\n"))
     {
-        ERR(ERR_MSG_FWRITE, "stdout");
         return true;
     }
     for (int i = depth; i--;)
     {
-        if (putchar(' ') == EOF)
+        if (print(stdout, " "))
         {
-            ERR(ERR_MSG_FWRITE, "stdout");
             return true;
         }
     }
-    if (puts("(") == EOF)
+    if (print(stdout, "(\n"))
     {
-        ERR(ERR_MSG_FWRITE, "stdout");
         return true;
     }
     for (int i = 0; tree->child[i]->type != tnEOC; ++i)
@@ -89,15 +90,13 @@ bool print_tree(const TreeNode *const tree, const int depth)
     }
     for (int i = depth; i--;)
     {
-        if (putchar(' ') == EOF)
+        if (print(stdout, " "))
         {
-            ERR(ERR_MSG_FWRITE, "stdout");
             return true;
         }
     }
-    if (puts(")") == EOF)
+    if (print(stdout, ")\n"))
     {
-        ERR(ERR_MSG_FWRITE, "stdout");
         return true;
     }
     return false;
@@ -122,7 +121,7 @@ TreeNode *eoc;
 static TreeNode *block(void)
 {
     /*
-        Block => ( Block ) Block | Identity Block | nul
+        Block => ( Block ) Block | ! Identity Block | Identity Block | nul
     */
     switch (token->type)
     {
@@ -136,7 +135,7 @@ static TreeNode *block(void)
             }
             if (token->type != tBlockRight)
             {
-                ERR(ERR_MSG_SYNTAX, "BlockRight", tokentype_to_str(token->type));
+                err(ERR_MSG_SYNTAX, "BlockRight", tokentype_to_str(token->type));
                 return nullptr;
             }
             ++token;
@@ -145,18 +144,16 @@ static TreeNode *block(void)
             {
                 return nullptr;
             }
-            TreeNode *const t2 = malloc(sizeof(TreeNode));
+            TreeNode *const t2 = alloc(sizeof(TreeNode));
             if (!t2)
             {
-                ERR(ERR_MSG_ALLOC, (int)(sizeof(TreeNode)));
                 return nullptr;
             }
             t2->type = tnBlock;
             t2->value = nullptr;
-            TreeNode **const t3 = malloc(3 * sizeof(TreeNode *));
+            TreeNode **const t3 = alloc(3 * sizeof(TreeNode *));
             if (!t3)
             {
-                ERR(ERR_MSG_ALLOC, (int)(3 * sizeof(TreeNode *)));
                 return nullptr;
             }
             t3[0] = t0;
@@ -167,38 +164,40 @@ static TreeNode *block(void)
         }
         case tBlockRight:
         {
-            TreeNode *const t0 = malloc(sizeof(TreeNode));
+            TreeNode *const t0 = alloc(sizeof(TreeNode));
             if (!t0)
             {
-                ERR(ERR_MSG_ALLOC, (int)(sizeof(TreeNode)));
                 return nullptr;
             }
             t0->type = tnBlock;
             t0->value = nullptr;
-            TreeNode **const t1 = malloc(1 * sizeof(TreeNode *));
+            TreeNode **const t1 = alloc(1 * sizeof(TreeNode *));
             if (!t1)
             {
-                ERR(ERR_MSG_ALLOC, (int)(1 * sizeof(TreeNode *)));
                 return nullptr;
             }
             t1[0] = eoc;
             t0->child = t1;
             return t0;
         }
-        case tIdentity:
+        case tFuncCall:
         {
-            TreeNode *const t0 = malloc(sizeof(TreeNode));
+            ++token;
+            if (token->type != tIdentity)
+            {
+                err(ERR_MSG_SYNTAX, "Identity", tokentype_to_str(token->type));
+                return nullptr;
+            }
+            TreeNode *const t0 = alloc(sizeof(TreeNode));
             if (!t0)
             {
-                ERR(ERR_MSG_ALLOC, (int)(sizeof(TreeNode)));
                 return nullptr;
             }
             t0->type = tnIdentity;
             t0->value = strdup(token->value);
-            TreeNode **const t1 = malloc(1 * sizeof(TreeNode *));
+            TreeNode **const t1 = alloc(1 * sizeof(TreeNode *));
             if (!t1)
             {
-                ERR(ERR_MSG_ALLOC, (int)(1 * sizeof(TreeNode *)));
                 return nullptr;
             }
             t1[0] = eoc;
@@ -209,18 +208,56 @@ static TreeNode *block(void)
             {
                 return nullptr;
             }
-            TreeNode *const t3 = malloc(sizeof(TreeNode));
+            TreeNode *const t3 = alloc(sizeof(TreeNode));
             if (!t3)
             {
-                ERR(ERR_MSG_ALLOC, (int)(sizeof(TreeNode)));
                 return nullptr;
             }
             t3->type = tnBlock;
             t3->value = nullptr;
-            TreeNode **const t4 = malloc(3 * sizeof(TreeNode *));
+            TreeNode **const t4 = alloc(3 * sizeof(TreeNode *));
+            if (!t3)
+            {
+                return nullptr;
+            }
+            t4[0] = t2;
+            t4[1] = t0;
+            t4[2] = eoc;
+            t3->child = t4;
+            return t3;
+        }
+        case tIdentity:
+        {
+            TreeNode *const t0 = alloc(sizeof(TreeNode));
+            if (!t0)
+            {
+                return nullptr;
+            }
+            t0->type = tnIdentity;
+            t0->value = strdup(token->value);
+            TreeNode **const t1 = alloc(1 * sizeof(TreeNode *));
+            if (!t1)
+            {
+                return nullptr;
+            }
+            t1[0] = eoc;
+            t0->child = t1;
+            ++token;
+            TreeNode *const t2 = block();
+            if (!t2)
+            {
+                return nullptr;
+            }
+            TreeNode *const t3 = alloc(sizeof(TreeNode));
+            if (!t3)
+            {
+                return nullptr;
+            }
+            t3->type = tnBlock;
+            t3->value = nullptr;
+            TreeNode **const t4 = alloc(3 * sizeof(TreeNode *));
             if (!t4)
             {
-                ERR(ERR_MSG_ALLOC, (int)(3 * sizeof(TreeNode *)));
                 return nullptr;
             }
             t4[0] = t0;
@@ -231,7 +268,98 @@ static TreeNode *block(void)
         }
         default:
         {
-            ERR(ERR_MSG_SYNTAX, "BlockLeft or Identity", tokentype_to_str(token->type));
+            err(ERR_MSG_SYNTAX, "BlockLeft or Identity", tokentype_to_str(token->type));
+            return nullptr;
+        }
+    }
+}
+
+static TreeNode *global()
+{
+    /*
+        Global => Identity ( Block ) Global | nul
+    */
+    switch (token->type)
+    {
+        case tEOT:
+        {
+            TreeNode *const t0 = alloc(sizeof(TreeNode));
+            if (!t0)
+            {
+                return nullptr;
+            }
+            t0->type = tnGlobal;
+            t0->value = nullptr;
+            TreeNode **const t1 = alloc(1 * sizeof(TreeNode *));
+            if (!t1)
+            {
+                return nullptr;
+            }
+            t1[0] = eoc;
+            t0->child = t1;
+            return t0;
+        }
+        case tIdentity:
+        {
+            TreeNode *const t0 = alloc(sizeof(TreeNode));
+            if (!t0)
+            {
+                return nullptr;
+            }
+            t0->type = tnIdentity;
+            t0->value = strdup(token->value);
+            TreeNode **const t1 = alloc(1 * sizeof(TreeNode *));
+            if (!t1)
+            {
+                return nullptr;
+            }
+            t1[0] = eoc;
+            t0->child = t1;
+            ++token;
+            if (token->type != tBlockLeft)
+            {
+                err(ERR_MSG_SYNTAX, "BlockLeft", tokentype_to_str(token->type));
+                return nullptr;
+            }
+            ++token;
+            TreeNode *const t2 = block();
+            if (!t2)
+            {
+                return nullptr;
+            }
+            if (token->type != tBlockRight)
+            {
+                err(ERR_MSG_SYNTAX, "BlockRight", tokentype_to_str(token->type));
+                return nullptr;
+            }
+            ++token;
+            TreeNode *const t3 = global();
+            if (!t3)
+            {
+                return nullptr;
+            }
+            TreeNode *const t4 = alloc(sizeof(TreeNode));
+            if (!t4)
+            {
+                return nullptr;
+            }
+            t4->type = tnGlobal;
+            t4->value = nullptr;
+            TreeNode **const t5 = alloc(4 * sizeof(TreeNode *));
+            if (!t5)
+            {
+                return nullptr;
+            }
+            t5[0] = t0;
+            t5[1] = t2;
+            t5[2] = t3;
+            t5[3] = eoc;
+            t4->child = t5;
+            return t4;
+        }
+        default:
+        {
+            err(ERR_MSG_SYNTAX, "EOT or Identity", tokentype_to_str(token->type));
             return nullptr;
         }
     }
@@ -239,34 +367,14 @@ static TreeNode *block(void)
 
 TreeNode *treeize(const Token *t)
 {
-    /*
-        Global => ( Block )
-    */
     token = t;
-    if (token->type != tBlockLeft)
-    {
-        ERR(ERR_MSG_SYNTAX, "BlockLeft", tokentype_to_str(token->type));
-        return nullptr;
-    }
-    ++token;
-    eoc = malloc(sizeof(TreeNode));
+    eoc = alloc(sizeof(TreeNode));
     if (!eoc)
     {
-        ERR(ERR_MSG_ALLOC, (int)(sizeof(TreeNode)));
         return nullptr;
     }
     eoc->type = tnEOC;
     eoc->value = nullptr;
     eoc->child = nullptr;
-    TreeNode *const t0 = block();
-    if (!t0)
-    {
-        return nullptr;
-    }
-    if (token->type != tBlockRight)
-    {
-        ERR(ERR_MSG_SYNTAX, "BlockRight", tokentype_to_str(token->type));
-        return nullptr;
-    }
-    return t0;
+    return global();
 }

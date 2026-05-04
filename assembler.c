@@ -6,66 +6,99 @@ int tagidx;
 
 /*
     Returns true as error occurs or false.
-    Guarantees tree->type is Block.
 */
-bool data(const TreeNode *const tree)
+bool data(const TreeNode *const tree, const char *const fn)
 {
+    if (tree->type == tnGlobal)
+    {
+        return tree->child[0]->type != tnEOC
+           && ((tagidx = 0) || data(tree->child[1], tree->child[0]->value)
+            || data(tree->child[2], nullptr));
+    }
     switch (tree->child[0]->type)
     {
         case tnBlock:
         {
-            return data(tree->child[0])
-                || data(tree->child[1]);
-        }
-        case tnIdentity:
-        {
-            if (fprintf(dstf, "s%d:\n", tagidx) == EOF
-             || fprintf(dstf, "    .asciz \"%s\\n\"\n", tree->child[0]->value) == EOF
-             || fprintf(dstf, "e%d:\n", tagidx) == EOF)
-            {
-                ERR(ERR_MSG_FWRITE, dstn);
-                return true;
+            return data(tree->child[0], fn)
+                || data(tree->child[1], fn);
             }
-            ++tagidx;
-            return data(tree->child[1]);
-        }
         case tnEOC:
         {
             return false;
         }
+        case tnGlobal:
+        {
+            /*
+                Impossible.
+            */
+        }
+        case tnIdentity:
+        {
+            if (print(dstf, "_$%s%d:\n    .asciz \"%s\\n\"\n_$$%s%d:\n", fn, tagidx, tree->child[0]->value, fn, tagidx))
+            {
+                return true;
+            }
+            ++tagidx;
+            return data(tree->child[1], fn);
+        }
     }
+    return true;
 }
 
 /*
     Returns true as error occurs or false.
 */
-bool code(const TreeNode *const tree)
+bool code(const TreeNode *const tree, const char *const fn)
 {
     switch (tree->child[0]->type)
     {
         case tnBlock:
         {
-            return code(tree->child[0])
-                || code(tree->child[1]);
-        }
-        case tnIdentity:
-        {
-            if (fputs("    movq $1, %rax\n", dstf) == EOF
-             || fprintf(dstf, "    movq $(e%d - s%d), %%rdx\n", tagidx, tagidx) == EOF
-             || fprintf(dstf, "    leaq s%d(%%rip), %%rsi\n", tagidx) == EOF
-             || fputs("    syscall\n", dstf) == EOF)
-            {
-                ERR(ERR_MSG_FWRITE, dstn);
-                return true;
-            }
-            ++tagidx;
-            return code(tree->child[1]);
+            return tree->child[0]->type != tnEOC && tree->child[1]->type == tnIdentity
+                 ? print(dstf, "    call _%s\n", tree->child[1]->value)
+                || code(tree->child[0], fn)
+                 : code(tree->child[0], fn)
+                || code(tree->child[1], fn);
         }
         case tnEOC:
         {
             return false;
         }
+        case tnGlobal:
+        {
+            /*
+                Impossible.
+            */
+        }
+        case tnIdentity:
+        {
+            if (print(dstf, "    movq $1, %%rax\n    movq $(_$$%s%d - _$%s%d), %%rdx\n    leaq _$%s%d(%%rip), %%rsi\n    syscall\n", fn, tagidx, fn, tagidx, fn, tagidx))
+            {
+                return true;
+            }
+            ++tagidx;
+            return code(tree->child[1], fn);
+        }
     }
+    return true;
+}
+
+/*
+    Returns true as error occurs or false.
+*/
+bool func(const TreeNode *const tree)
+{
+    if (tree->child[0]->type == tnEOC)
+    {
+        return false;
+    }
+    if (print(dstf, ".type _%s, @function\n_%s:\n    pushq %%rbp\n    movq %%rsp, %%rbp\n    movq $1, %%rdi\n", tree->child[0]->value, tree->child[0]->value)
+     || ((tagidx = 0) || code(tree->child[1], tree->child[0]->value))
+     || print(dstf, "    popq %%rbp\n    ret\n"))
+    {
+        return true;
+    }
+    return func(tree->child[2]);
 }
 
 /*
@@ -75,32 +108,9 @@ bool assemble(const TreeNode *const tree, FILE *const df, const char *const dn)
 {
     dstf = df;
     dstn = dn;
-    if (fputs(".section .data\n", dstf) == EOF
-     || data(tree)
-     || fputs(".section .text\n", dstf) == EOF
-     || fputs(".globl main\n", dstf) == EOF
-     || fputs("main:\n", dstf) == EOF)
-    {
-        ERR(ERR_MSG_FWRITE, dstn);
-        return true;
-    }
-    if (tagidx)
-    {
-        tagidx = 0;
-        if (fputs("    movq $1, %rdi\n", dstf) == EOF)
-        {
-            ERR(ERR_MSG_FWRITE, dstn);
-            return true;
-        }
-    }
-    if (code(tree)
-     || fputs("    movq $60, %rax\n", dstf) == EOF
-     || fputs("    xorq %rdi, %rdi\n", dstf) == EOF
-     || fputs("    syscall\n", dstf) == EOF
-     || fputs(".section .note.GNU-stack,\"\",@progbits\n", dstf) == EOF)
-    {
-        ERR(ERR_MSG_FWRITE, dstn);
-        return true;
-    }
-    return false;
+    return print(dstf, ".section .data\n")
+        || data(tree, nullptr)
+        || print(dstf, ".section .text\n")
+        || ((tagidx = 0) || func(tree))
+        || print(dstf, ".globl main\nmain:\n    pushq %%rbp\n    movq %%rsp, %%rbp\n    call _main\n    movl $0, %%eax\n    popq %%rbp\n    ret\n.section .note.GNU-stack,\"\",@progbits\n");
 }

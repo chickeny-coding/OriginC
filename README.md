@@ -2,17 +2,15 @@
 
 ## Features
 
-OriginC is a compiler which can compile `.og` file into `.s`.
+OriginC is a compiler which can compile `.og` file into executable.
 
-The generated `.s` file can be compile into executable with **Linux** `gcc` directly.
-
-If the source code is invalid, OriginC will print the error message to `stderr` and exit the compilation with non-`0` code.
+If the source code is invalid, OriginC will print the error message to `stderr` and exit the compilation with code `1`.
 
 ## Usages
 
 * Clone the repository from `GitHub` with `git`.
 
-> Make sure you have `git`
+> Make sure you have `git`.
 
 ```sh
 git clone git@github.com:chickeny-coding/OriginC.git
@@ -24,32 +22,18 @@ git clone git@github.com:chickeny-coding/OriginC.git
 cd OriginC/
 ```
 
+* Write your own `.og` file.
+
+> You had better to name it `src.og` because then you can just compile it with `Makefile`.
+
 * Build the compiler.
 
-> Make sure you have `make`
+> Make sure you have `make`.
+>
+> `Makefile` does 3 things: build OriginC, compile `src.og` into `dst.s` with `ogc`, and compile `dst.s` into `dst` with **Linux** `gcc`.
 
 ```sh
 make
-```
-
-* Now you can compile your `.og` file.
-
-```sh
-# src.og: source file
-# dst.s: destination file
-./ogc src.og dst.s
-```
-
-* Then compile it into executable with **Linux** `gcc`.
-
-> Make sure you have **Linux** `gcc`.
->
-> OriginC requires standard `C` version `C23`.
->
-> Only standard `C23` and `gcc` are enough for building.
-
-```sh
-gcc dst.s -o dst
 ```
 
 * At last, run it.
@@ -64,13 +48,33 @@ gcc dst.s -o dst
 
 A global is a whole program.
 
+It must be several functions.
+
+The function `main` will be the entry of the program.
+
+Missing `main` function can occur linking error.
+
+### Function
+
+A function is a named block, which can call other functions or be called by other functions.
+
+The definition of a function is the function name and the function block.
+
 It must be a block with a pair of parentheses around.
+
+> Calling recursively is allowed.
+>
+> But endless recursion can occur Segmentation Fault.
 
 ### Block
 
 A block is several items in a pair of parentheses.
 
-It can be nothing, an identity and a block, or a block with a pair of parentheses around and another block.
+An item can be:
+
+* Another block with a pair of parentheses around.
+* A function call, which is a `!` and the function name.
+* An identity, which will print the identity.
 
 ### Identity
 
@@ -91,6 +95,7 @@ All identities are printed in **pre-order** of the program AST separated with `\
 #### Code 0
 
 ```og
+main
 (
   print-in-single-line
   print in multiple lines
@@ -112,6 +117,7 @@ lines
 #### Code 1
 
 ```og
+main
 (
   (
     (
@@ -135,4 +141,52 @@ lines
 
 ```txt
 nested-here
+```
+
+### 2 Calling Other Functions
+
+#### Code 2
+
+```og
+f
+(
+  f
+)
+main
+(
+  before-calling
+  !f
+  after-calling
+)
+```
+
+#### Output 2
+
+```txt
+before-calling
+f
+after-calling
+```
+
+### 3 Calling Itself Recursively
+
+#### Code 3
+
+```og
+main
+(
+  main
+  !main
+)
+```
+
+#### Output 3
+
+```txt
+main
+main
+main
+...
+main
+Segmentation fault (core dumped)
 ```

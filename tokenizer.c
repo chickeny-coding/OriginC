@@ -1,6 +1,3 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 #include "errors.h"
 
 typedef enum _TokenType
@@ -8,6 +5,7 @@ typedef enum _TokenType
     tBlockLeft,
     tBlockRight,
     tEOT,
+    tFuncCall,
     tIdentity,
 } TokenType;
 
@@ -27,11 +25,16 @@ char *tokentype_to_str(const TokenType tt)
         {
             return "EOT";
         }
+        case tFuncCall:
+        {
+            return "FuncCall";
+        }
         case tIdentity:
         {
             return "Identity";
         }
     }
+    return nullptr;
 }
 
 /*
@@ -50,22 +53,19 @@ bool print_token(const Token *token)
 {
     for (; token->type != tEOT; ++token)
     {
-        if (printf("%s", tokentype_to_str(token->type)) == EOF)
+        if (print(stdout, "%s", tokentype_to_str(token->type)))
         {
-            ERR(ERR_MSG_FWRITE, "stdout");
             return true;
         }
         if (token->value)
         {
-            if (printf("(\"%s\")", token->value) == EOF)
+            if (print(stdout, "(\"%s\")", token->value))
             {
-                ERR(ERR_MSG_FWRITE, "stdout");
                 return true;
             }
         }
-        if (putchar('\n') == EOF)
+        if (print(stdout, "\n"))
         {
-            ERR(ERR_MSG_FWRITE, "stdout");
             return true;
         }
     }
@@ -96,20 +96,18 @@ Token *tokenize(FILE *const srcf)
         s = true    =>  reading identity
     */
     bool state = false;
-    int tsize = 0;
-    int tcap = 1;
-    Token *token = malloc(tcap * sizeof(Token));
+    size_t tsize = 0;
+    size_t tcap = 1;
+    Token *token = alloc(tcap * sizeof(Token));
     if (!token)
     {
-        ERR(ERR_MSG_ALLOC, tcap);
         return nullptr;
     }
-    int ssize = 0;
-    int scap = 2;
-    char *str = malloc(scap * sizeof(char));
+    size_t ssize = 1;
+    size_t scap = 4;
+    char *str = alloc(scap * sizeof(char));
     if (!str)
     {
-        ERR(ERR_MSG_ALLOC, scap);
         return nullptr;
     }
     for (int c; (c = fgetc(srcf)) != EOF;)
@@ -118,22 +116,18 @@ Token *tokenize(FILE *const srcf)
         {
             if (state)
             {
-                if (tsize == tcap)
-                {
-                    tcap <<= 1;
-                    token = realloc(token, tcap * sizeof(Token));
-                    if (!token)
-                    {
-                        ERR(ERR_MSG_ALLOC, tcap);
-                        return nullptr;
-                    }
-                }
+                reserve((void **)(&token), tsize, &tcap, sizeof(Token), true);
                 token[tsize].type = tIdentity;
                 token[tsize].value = str;
                 ++tsize;
-                ssize = 0;
+                ssize = 1;
                 scap = 1;
-                str = malloc(scap * sizeof(char));
+                str = alloc(scap * sizeof(char));
+                if (!str)
+                {
+                    return nullptr;
+                }
+                str[0] = '\0';
             }
             state = false;
             continue;
@@ -142,38 +136,42 @@ Token *tokenize(FILE *const srcf)
         {
             case '(':
             case ')':
+            case '!':
             {
                 if (state)
                 {
-                    if (tsize == tcap)
-                    {
-                        tcap <<= 1;
-                        token = realloc(token, tcap * sizeof(Token));
-                        if (!token)
-                        {
-                            ERR(ERR_MSG_ALLOC, tcap);
-                            return nullptr;
-                        }
-                    }
+                    reserve((void **)(&token), tsize, &tcap, sizeof(Token), true);
                     token[tsize].type = tIdentity;
                     token[tsize].value = str;
                     ++tsize;
-                    ssize = 0;
+                    ssize = 1;
                     scap = 2;
-                    str = malloc(scap * sizeof(char));
-                    str[0] = '\0';
-                }
-                if (tsize == tcap)
-                {
-                    tcap <<= 1;
-                    token = realloc(token, tcap * sizeof(Token));
-                    if (!token)
+                    str = alloc(scap * sizeof(char));
+                    if (!str)
                     {
-                        ERR(ERR_MSG_ALLOC, tcap);
                         return nullptr;
                     }
+                    str[0] = '\0';
                 }
-                token[tsize].type = c == '(' ? tBlockLeft : tBlockRight;
+                reserve((void **)(&token), tsize, &tcap, sizeof(Token), true);
+                switch (c)
+                {
+                    case '(':
+                    {
+                        token[tsize].type = tBlockLeft;
+                        break;
+                    }
+                    case ')':
+                    {
+                        token[tsize].type = tBlockRight;
+                        break;
+                    }
+                    case '!':
+                    {
+                        token[tsize].type = tFuncCall;
+                        break;
+                    }
+                }
                 token[tsize].value = nullptr;
                 ++tsize;
                 state = false;
@@ -183,24 +181,14 @@ Token *tokenize(FILE *const srcf)
             {
                 if (state)
                 {
-                    // Note '\0'
-                    if (ssize + 1 == scap)
-                    {
-                        scap <<= 1;
-                        str = realloc(str, scap * sizeof(char));
-                        if (!str)
-                        {
-                            ERR(ERR_MSG_ALLOC, scap);
-                            return nullptr;
-                        }
-                    }
-                    str[ssize] = (char)(c);
-                    str[ssize + 1] = '\0';
+                    reserve((void **)(&str), ssize, &scap, sizeof(char), true);
+                    str[ssize - 1] = (char)(c);
+                    str[ssize] = '\0';
                     ++ssize;
                 }
                 else
                 {
-                    ssize = 1;
+                    ssize = 2;
                     str[0] = (char)(c);
                     str[1] = '\0';
                     state = true;
@@ -210,30 +198,12 @@ Token *tokenize(FILE *const srcf)
     }
     if (state)
     {
-        if (tsize == tcap)
-        {
-            tcap <<= 1;
-            token = realloc(token, tcap * sizeof(Token));
-            if (!token)
-            {
-                ERR(ERR_MSG_ALLOC, tcap);
-                return nullptr;
-            }
-        }
+        reserve((void **)(&token), tsize, &tcap, sizeof(Token), true);
         token[tsize].type = tIdentity;
         token[tsize].value = str;
         ++tsize;
     }
-    if (tsize == tcap)
-    {
-        ++tcap;
-        token = realloc(token, tcap * sizeof(Token));
-        if (!token)
-        {
-            ERR(ERR_MSG_ALLOC, tcap);
-            return nullptr;
-        }
-    }
+    reserve((void **)(&token), tsize, &tcap, sizeof(Token), false);
     token[tsize].type = tEOT;
     token[tsize].value = nullptr;
     return token;
