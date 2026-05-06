@@ -46,9 +46,6 @@ typedef struct _Token
     char *value;
 } Token;
 
-/*
-    Returns true as error occurs or false.
-*/
 bool print_token(const Token *token)
 {
     for (; token->type != tEOT; ++token)
@@ -98,14 +95,14 @@ Token *tokenize(FILE *const srcf)
     bool state = false;
     size_t tsize = 0;
     size_t tcap = 1;
-    Token *token = alloc(tcap * sizeof(Token));
+    Token *token = (Token *)(alloc(tcap, sizeof(Token), false));
     if (!token)
     {
         return nullptr;
     }
     size_t ssize = 1;
     size_t scap = 4;
-    char *str = alloc(scap * sizeof(char));
+    char *str = (char *)(alloc(scap, sizeof(char), false));
     if (!str)
     {
         return nullptr;
@@ -122,7 +119,7 @@ Token *tokenize(FILE *const srcf)
                 ++tsize;
                 ssize = 1;
                 scap = 1;
-                str = alloc(scap * sizeof(char));
+                str = (char *)(alloc(scap, sizeof(char), false));
                 if (!str)
                 {
                     return nullptr;
@@ -146,7 +143,7 @@ Token *tokenize(FILE *const srcf)
                     ++tsize;
                     ssize = 1;
                     scap = 2;
-                    str = alloc(scap * sizeof(char));
+                    str = (char *)(alloc(scap, sizeof(char), false));
                     if (!str)
                     {
                         return nullptr;

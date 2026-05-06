@@ -7,6 +7,7 @@
 
 #define ERR_MSG_ALLOC   "Failed allocating memory: expected size %zu.\n"
 #define ERR_MSG_ARGC    "Unrecognized args count: expected 3, found %d.\n"
+#define ERR_MSG_STRDUP  "Failed duplicating string: %p.\n"
 #define ERR_MSG_FCLOSE  "Failed closing file: %s.\n"
 #define ERR_MSG_FOPEN   "Failed opening file: %s.\n"
 #define ERR_MSG_FWRITE  "Failed writing file: %s.\n"
@@ -20,20 +21,17 @@ void err(const char *const format, ...)
     va_end(args);
 }
 
-void *alloc(const size_t size)
+void *alloc(const size_t length, const size_t element, const bool clear)
 {
-    void *p = malloc(size);
+    void *p = (clear ? calloc(length, element) : malloc(length * element));
     if (!p)
     {
-        err(ERR_MSG_ALLOC, size);
+        err(ERR_MSG_ALLOC, length * element);
         return nullptr;
     }
     return p;
 }
 
-/*
-    Returns true as error occurs or false.
-*/
 bool print(FILE *const file, const char *const format, ...)
 {
     va_list args;
@@ -51,7 +49,6 @@ bool print(FILE *const file, const char *const format, ...)
     Different method value for different reserve method.
     method = false  =>  ++cap;
     method = true   =>  cap <<= 1;
-    Returns true as error occurs or false.
 */
 bool reserve(void **memory, const size_t size, size_t *const cap, const size_t element, const bool method)
 {

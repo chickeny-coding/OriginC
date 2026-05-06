@@ -43,9 +43,6 @@ typedef struct _TreeNode
     struct _TreeNode **child;
 } TreeNode;
 
-/*
-    Returns true as error occurs or false.
-*/
 bool print_tree(const TreeNode *const tree, const int depth)
 {
     for (int i = depth; i--;)
@@ -144,14 +141,14 @@ static TreeNode *block(void)
             {
                 return nullptr;
             }
-            TreeNode *const t2 = alloc(sizeof(TreeNode));
+            TreeNode *const t2 = (TreeNode *const)(alloc(1, sizeof(TreeNode), false));
             if (!t2)
             {
                 return nullptr;
             }
             t2->type = tnBlock;
             t2->value = nullptr;
-            TreeNode **const t3 = alloc(3 * sizeof(TreeNode *));
+            TreeNode **const t3 = (TreeNode **const)(alloc(3, sizeof(TreeNode *), false));
             if (!t3)
             {
                 return nullptr;
@@ -164,14 +161,14 @@ static TreeNode *block(void)
         }
         case tBlockRight:
         {
-            TreeNode *const t0 = alloc(sizeof(TreeNode));
+            TreeNode *const t0 = (TreeNode *const)(alloc(1, sizeof(TreeNode), false));
             if (!t0)
             {
                 return nullptr;
             }
             t0->type = tnBlock;
             t0->value = nullptr;
-            TreeNode **const t1 = alloc(1 * sizeof(TreeNode *));
+            TreeNode **const t1 = (TreeNode **const)(alloc(1, sizeof(TreeNode *), false));
             if (!t1)
             {
                 return nullptr;
@@ -188,14 +185,20 @@ static TreeNode *block(void)
                 err(ERR_MSG_SYNTAX, "Identity", tokentype_to_str(token->type));
                 return nullptr;
             }
-            TreeNode *const t0 = alloc(sizeof(TreeNode));
+            TreeNode *const t0 = (TreeNode *const)(alloc(1, sizeof(TreeNode), false));
             if (!t0)
             {
                 return nullptr;
             }
             t0->type = tnIdentity;
             t0->value = strdup(token->value);
-            TreeNode **const t1 = alloc(1 * sizeof(TreeNode *));
+            if (!t0->value)
+            {
+                free(t0);
+                err(ERR_MSG_STRDUP, token->value);
+                return nullptr;
+            }
+            TreeNode **const t1 = (TreeNode **const)(alloc(1, sizeof(TreeNode *), false));
             if (!t1)
             {
                 return nullptr;
@@ -208,14 +211,14 @@ static TreeNode *block(void)
             {
                 return nullptr;
             }
-            TreeNode *const t3 = alloc(sizeof(TreeNode));
+            TreeNode *const t3 = (TreeNode *const)(alloc(1, sizeof(TreeNode), false));
             if (!t3)
             {
                 return nullptr;
             }
             t3->type = tnBlock;
             t3->value = nullptr;
-            TreeNode **const t4 = alloc(3 * sizeof(TreeNode *));
+            TreeNode **const t4 = (TreeNode **const)(alloc(3, sizeof(TreeNode *), false));
             if (!t3)
             {
                 return nullptr;
@@ -228,14 +231,20 @@ static TreeNode *block(void)
         }
         case tIdentity:
         {
-            TreeNode *const t0 = alloc(sizeof(TreeNode));
+            TreeNode *const t0 = (TreeNode *const)(alloc(1, sizeof(TreeNode), false));
             if (!t0)
             {
                 return nullptr;
             }
             t0->type = tnIdentity;
             t0->value = strdup(token->value);
-            TreeNode **const t1 = alloc(1 * sizeof(TreeNode *));
+            if (!t0->value)
+            {
+                free(t0);
+                err(ERR_MSG_STRDUP, token->value);
+                return nullptr;
+            }
+            TreeNode **const t1 = (TreeNode **const)(alloc(1, sizeof(TreeNode *), false));
             if (!t1)
             {
                 return nullptr;
@@ -248,14 +257,14 @@ static TreeNode *block(void)
             {
                 return nullptr;
             }
-            TreeNode *const t3 = alloc(sizeof(TreeNode));
+            TreeNode *const t3 = (TreeNode *const)(alloc(1, sizeof(TreeNode), false));
             if (!t3)
             {
                 return nullptr;
             }
             t3->type = tnBlock;
             t3->value = nullptr;
-            TreeNode **const t4 = alloc(3 * sizeof(TreeNode *));
+            TreeNode **const t4 = (TreeNode **const)(alloc(3, sizeof(TreeNode *), false));
             if (!t4)
             {
                 return nullptr;
@@ -283,14 +292,14 @@ static TreeNode *global()
     {
         case tEOT:
         {
-            TreeNode *const t0 = alloc(sizeof(TreeNode));
+            TreeNode *const t0 = (TreeNode *const)(alloc(1, sizeof(TreeNode), false));
             if (!t0)
             {
                 return nullptr;
             }
             t0->type = tnGlobal;
             t0->value = nullptr;
-            TreeNode **const t1 = alloc(1 * sizeof(TreeNode *));
+            TreeNode **const t1 = (TreeNode **const)(alloc(1, sizeof(TreeNode *), false));
             if (!t1)
             {
                 return nullptr;
@@ -301,14 +310,20 @@ static TreeNode *global()
         }
         case tIdentity:
         {
-            TreeNode *const t0 = alloc(sizeof(TreeNode));
+            TreeNode *const t0 = (TreeNode *const)(alloc(1, sizeof(TreeNode), false));
             if (!t0)
             {
                 return nullptr;
             }
             t0->type = tnIdentity;
             t0->value = strdup(token->value);
-            TreeNode **const t1 = alloc(1 * sizeof(TreeNode *));
+            if (!t0->value)
+            {
+                free(t0);
+                err(ERR_MSG_STRDUP, token->value);
+                return nullptr;
+            }
+            TreeNode **const t1 = (TreeNode **const)(alloc(1, sizeof(TreeNode *), false));
             if (!t1)
             {
                 return nullptr;
@@ -338,14 +353,14 @@ static TreeNode *global()
             {
                 return nullptr;
             }
-            TreeNode *const t4 = alloc(sizeof(TreeNode));
+            TreeNode *const t4 = (TreeNode *const)(alloc(1, sizeof(TreeNode), false));
             if (!t4)
             {
                 return nullptr;
             }
             t4->type = tnGlobal;
             t4->value = nullptr;
-            TreeNode **const t5 = alloc(4 * sizeof(TreeNode *));
+            TreeNode **const t5 = (TreeNode **const)(alloc(4, sizeof(TreeNode *), false));
             if (!t5)
             {
                 return nullptr;
@@ -368,7 +383,7 @@ static TreeNode *global()
 TreeNode *treeize(const Token *t)
 {
     token = t;
-    eoc = alloc(sizeof(TreeNode));
+    eoc = (TreeNode *)(alloc(1, sizeof(TreeNode), false));
     if (!eoc)
     {
         return nullptr;

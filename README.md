@@ -31,6 +31,8 @@ cd OriginC/
 > Make sure you have `make`.
 >
 > `Makefile` does 3 things: build OriginC, compile `src.og` into `dst.s` with `ogc`, and compile `dst.s` into `dst` with **Linux** `gcc`.
+>
+> You can remove all files built by `Makefile` with `make clean`.
 
 ```sh
 make

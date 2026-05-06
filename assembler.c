@@ -4,9 +4,6 @@ FILE *dstf;
 const char *dstn;
 int tagidx;
 
-/*
-    Returns true as error occurs or false.
-*/
 bool data(const TreeNode *const tree, const char *const fn)
 {
     if (tree->type == tnGlobal)
@@ -45,9 +42,6 @@ bool data(const TreeNode *const tree, const char *const fn)
     return true;
 }
 
-/*
-    Returns true as error occurs or false.
-*/
 bool code(const TreeNode *const tree, const char *const fn)
 {
     switch (tree->child[0]->type)
@@ -83,9 +77,6 @@ bool code(const TreeNode *const tree, const char *const fn)
     return true;
 }
 
-/*
-    Returns true as error occurs or false.
-*/
 bool func(const TreeNode *const tree)
 {
     if (tree->child[0]->type == tnEOC)
@@ -101,9 +92,6 @@ bool func(const TreeNode *const tree)
     return func(tree->child[2]);
 }
 
-/*
-    Returns true as error occurs or false.
-*/
 bool assemble(const TreeNode *const tree, FILE *const df, const char *const dn)
 {
     dstf = df;
